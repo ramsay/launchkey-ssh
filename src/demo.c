@@ -14,11 +14,11 @@ bool is_whitespace(char c) {
 bool readf(char* filename, char** content, bool trim)
 {
 	FILE * file;
-	char* filepath;
+	char* filepath = (char*) malloc(sizeof(char)*MAX_BUFFER);
 	long size;
  	size_t result;
- 	filepath = (char*) malloc(sizeof(char)*MAX_BUFFER);
- 	filepath = strcat(filepath, filename);
+ 	strcpy(filepath, ROOT_DIR);
+ 	strcat(filepath, filename);
  	file = fopen(filepath, "r");
  	if (!file) {
  		return false;

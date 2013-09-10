@@ -1,3 +1,4 @@
+#define HTTP_ONLY
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -5,7 +6,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <curl/curl.h>
-#include <cJSON/cJSON.h>
 
 typedef struct {
 	/** autorize() response object **/
@@ -27,16 +27,14 @@ typedef struct {
 	char* secret_key;
 	char* private_key;
 	char* public_key;
-	long* ping_time;
-	long ping_difference;
+	struct tm* ping_time;
+	time_t ping_difference;
 } api_data;
 
 struct MemoryStruct {
 	char *memory;
 	size_t size;
 };
-
-void lk_pre_auth(api_data*);
 
 auth_request lk_authorize(api_data*, const char*);
 
