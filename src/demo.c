@@ -38,6 +38,7 @@ bool readf(char* filename, char** content, bool trim)
 	if (result != size) {
 		return false;
 	}
+	(*content)[result] = '\0';
 	if (trim) {
 		int i;
 		for (i = size-1; is_whitespace(*content[i]); i--) {

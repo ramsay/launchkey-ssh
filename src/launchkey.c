@@ -3,9 +3,11 @@
 #include "cJSON.h"
 #include <openssl/pem.h>
 #include <openssl/crypto.h>
+#include <openssl/sha.h>
+#include <openssl/evp.h>
 #define API_HOST "https://api.launchkey.com/v1"
 #define MAX_BUFFER 500
-#define TIMESTAMP_FORMAT "%Y-%0m-%0d %0H:%0M:%0S"
+#define TIMESTAMP_FORMAT "%Y-%m-%0d %H:%M:%S"
 
 static size_t
 WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
@@ -140,45 +142,98 @@ char* http_post(char* url, cJSON* data, bool verify)
 	return chunk.memory;
 }
 
-void encrypt_RSA(char* encrypted, char* key, char* message)
+EVP_PKEY* parse_private_key(const char* string)
 {
-	FILE* fp = fopen("/tmp/public_key", "w+");
-	bool endl = false;
-	for(;*key != '\0'; key++) {
-		if (!endl || *key != '\n') {
-			fputc(*key, fp);
-		}
-		endl = (*key == '\n');
-	}
-	rewind(fp);
-
-	RSA* rsa = PEM_read_RSA_PUBKEY(fp, NULL, NULL, NULL);
-
-	encrypted = (char *) malloc (RSA_size(rsa));
-
-	//int flen, unsigned char *from,
-    //unsigned char *to, RSA *rsa, int padding
-    int length = strlen(message);
-	RSA_public_encrypt(length, message, encrypted, rsa, 4);
+	BIO *mbio;
+	mbio=BIO_new(BIO_s_mem());
+	BIO_puts(mbio, string);
 	
-	RSA_free(rsa);
+	return PEM_read_bio_PrivateKey(mbio, NULL, NULL, NULL);
 }
 
-void sign_data(char* private_key, char* data)
+EVP_PKEY* parse_public_key(const char* string)
 {
-	/**
-    from Crypto.PublicKey import RSA
-    from Crypto.Signature import PKCS1_v1_5
-    from Crypto.Hash import SHA256
-    from base64 import b64encode, b64decode
-    rsakey = RSA.importKey(priv_key)
-    signer = PKCS1_v1_5.new(rsakey)
-    digest = SHA256.new()
-    digest.update(b64decode(data))
-    sign = signer.sign(digest)
-    **/
+	BIO *mbio;
+	mbio=BIO_new(BIO_s_mem());
+	BIO_puts(mbio, string);
 
+	return PEM_read_bio_PUBKEY(mbio, NULL, NULL, NULL);
+}
 
+char* b64encode(char* string, int length)
+{
+	BIO *bio, *mbio, *b64bio;
+	mbio = BIO_new(BIO_s_mem());
+	b64bio = BIO_new(BIO_f_base64());
+	bio = BIO_push(b64bio, mbio);
+	BIO_write(bio, string, length);
+	BIO_flush(bio);
+	char* data;
+	//int data_length = BIO_gets(mbio, data, 1024);
+	int data_length = (int)BIO_ctrl(mbio, BIO_CTRL_INFO, 0, (char *)&data);
+	data[data_length] = '\0';
+	return data;
+}
+
+char* b64decode(char* string, int length)
+{
+	BIO *bio, *mbio, *b64bio;
+	mbio = BIO_new(BIO_s_mem());
+	b64bio = BIO_new(BIO_f_base64());
+	bio = BIO_push(b64bio, mbio);
+	BIO_write(mbio, string, length);
+	BIO_flush(bio);
+	char* data = (char *) malloc (sizeof(char)*length*2);
+	int size = BIO_read(bio, data, length*2);
+	return data;
+}
+
+bool rsa_sign(EVP_PKEY* private_key, const char* data, char** signature)
+{
+    EVP_MD_CTX* ctx = EVP_MD_CTX_create();
+
+    const EVP_MD* md = EVP_sha256();
+
+    if (!EVP_SignInit(ctx, md)) {
+        return false;
+    }
+    
+    int data_len = strlen(data);
+    
+    if (!EVP_SignUpdate(ctx, data, data_len)) {
+        return false;
+    }
+
+    unsigned int sig_len;
+
+	char* raw_sig = malloc(EVP_PKEY_size(private_key));
+    if (!EVP_SignFinal(ctx, (unsigned char *)raw_sig, &sig_len, private_key)) {
+        return false;
+    }
+
+    *signature = b64encode(raw_sig, sig_len);
+    return sig_len;
+}
+
+char* encrypt_RSA(char** encrypted, char* key, char* message)
+{
+	EVP_PKEY* public_key = parse_private_key(key);
+
+	char* raw_crypt = (char *) malloc(EVP_PKEY_size(public_key));
+
+	int len = RSA_public_encrypt(
+		strlen(message), message, raw_crypt, 
+		public_key->pkey.rsa, RSA_PKCS1_PADDING
+	);
+	
+	*encrypted = b64encode(raw_crypt, len);
+	return encrypted;
+}
+
+void sign_data(char* private_key_string, char* data, char** signature)
+{
+	EVP_PKEY* private_key = parse_private_key(private_key_string);
+	rsa_sign(private_key, data, signature);
 }
 
 void lk_ping(api_data* api)
@@ -203,17 +258,18 @@ void lk_ping(api_data* api)
     }
 }
 
-void lk_pre_auth(api_data* api, char* encrypted_app_secret, char* signature)
+void lk_pre_auth(api_data* api, char** encrypted_app_secret, char** signature)
 {
     lk_ping(api);
     char* to_encrypt = (char*) malloc (sizeof(char)*MAX_BUFFER);
     char* timestamp = (char*) malloc (sizeof(char)*50);
-    signature = (char*) malloc (sizeof(char)*MAX_BUFFER);
+    unsigned char* other;
 
     strftime(timestamp, 50, TIMESTAMP_FORMAT, api->ping_time);
     sprintf(to_encrypt, "{'secret': '%s', 'stamped': '%s'}", api->secret_key, timestamp);
-    encrypt_RSA(encrypted_app_secret, api->public_key, to_encrypt);
-    sign_data(api->private_key, encrypted_app_secret);
+    other = encrypt_RSA(encrypted_app_secret, api->public_key, to_encrypt);
+    sign_data(api->private_key, other, signature);
+    *encrypted_app_secret = other;
 }
 
 auth_request lk_authorize(api_data* api, const char* username) {
@@ -241,7 +297,7 @@ auth_request lk_authorize(api_data* api, const char* username) {
 	char* secret_key;
 	char* signature;
 	char* session = "True";
-	lk_pre_auth(api, secret_key, signature);
+	lk_pre_auth(api, &secret_key, &signature);
 	cJSON* post_data = (cJSON*) malloc (sizeof(cJSON));
 	cJSON_AddStringToObject(post_data, "app_key", api->app_key);
 	cJSON_AddStringToObject(post_data, "secret_key", secret_key);

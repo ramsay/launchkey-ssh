@@ -6,6 +6,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <curl/curl.h>
+#include <openssl/evp.h>
 
 typedef struct {
 	/** autorize() response object **/
@@ -35,6 +36,18 @@ struct MemoryStruct {
 	char *memory;
 	size_t size;
 };
+
+EVP_PKEY* parse_private_key(const char*);
+
+EVP_PKEY* parse_public_key(const char*);
+
+char* b64encode(char*, int);
+
+char* b64decode(char*, int);
+
+bool rsa_sign(EVP_PKEY*, const char*, char**);
+
+void sign_data(char*, char*, char**);
 
 auth_request lk_authorize(api_data*, const char*);
 
