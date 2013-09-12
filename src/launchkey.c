@@ -160,7 +160,7 @@ EVP_PKEY* parse_public_key(const char* string)
 	return PEM_read_bio_PUBKEY(mbio, NULL, NULL, NULL);
 }
 
-char* b64encode(char* string, int length)
+int b64encode(char* string, int length, char** encoded)
 {
 	BIO *bio, *mbio, *b64bio;
 	mbio = BIO_new(BIO_s_mem());
@@ -168,14 +168,13 @@ char* b64encode(char* string, int length)
 	bio = BIO_push(b64bio, mbio);
 	BIO_write(bio, string, length);
 	BIO_flush(bio);
-	char* data;
 	//int data_length = BIO_gets(mbio, data, 1024);
-	int data_length = (int)BIO_ctrl(mbio, BIO_CTRL_INFO, 0, (char *)&data);
-	data[data_length] = '\0';
-	return data;
+	int data_length = (int)BIO_ctrl(mbio, BIO_CTRL_INFO, 0, encoded);
+	(*encoded)[data_length] = '\0';
+	return data_length;
 }
 
-char* b64decode(char* string, int length)
+int b64decode(char* string, int length, char** decoded)
 {
 	BIO *bio, *mbio, *b64bio;
 	mbio = BIO_new(BIO_s_mem());
@@ -183,9 +182,9 @@ char* b64decode(char* string, int length)
 	bio = BIO_push(b64bio, mbio);
 	BIO_write(mbio, string, length);
 	BIO_flush(bio);
-	char* data = (char *) malloc (sizeof(char)*length*2);
-	int size = BIO_read(bio, data, length*2);
-	return data;
+	*decoded = (char *) malloc (sizeof(char)*strlen(string)*2);
+	int dlength = BIO_read(bio, *decoded, strlen(string)*2);
+	return dlength;
 }
 
 bool rsa_sign(EVP_PKEY* private_key, const char* data, char** signature)
@@ -211,7 +210,7 @@ bool rsa_sign(EVP_PKEY* private_key, const char* data, char** signature)
         return false;
     }
 
-    *signature = b64encode(raw_sig, sig_len);
+    sig_len = b64encode(raw_sig, sig_len, signature);
     return sig_len;
 }
 
@@ -223,7 +222,19 @@ void encrypt_RSA(char* public_key_string, const char* message, char** encrypted)
 
 	int len = RSA_public_encrypt(strlen(message), message, raw_crypt, public_key->pkey.rsa, RSA_PKCS1_OAEP_PADDING);
 	
-	*encrypted = b64encode(raw_crypt, len);
+	b64encode(raw_crypt, len, encrypted);
+}
+
+void decrypt_RSA(char* private_key_string, const char* package, char** decrypted)
+{
+	EVP_PKEY* private_key = parse_private_key(private_key_string);
+
+	int length, dlength;
+	char* data;
+	length = strlen(package);
+	dlength = b64decode(package, length, &data);
+
+	RSA_private_decrypt(dlength, data, *decrypted, private_key->pkey.rsa, RSA_PKCS1_OAEP_PADDING);
 }
 
 void sign_data(char* private_key_string, char* data, char** signature)
@@ -268,26 +279,6 @@ void lk_pre_auth(api_data* api, char** encrypted_app_secret, char** signature)
 }
 
 auth_request lk_authorize(api_data* api, const char* username) {
-	/**
-	'''
-        Used to send an authorization request for a specific username
-        :param username: String. The LaunchKey username of the one authorizing
-        :param session: Boolean. If keeping a session mark True; transactional mark False
-        :return: String. The auth_request value for future reference.
-        '''
-        params = self._prepare_auth()
-        params['username'] = username
-        params['session'] = session
-        response = requests.post(self.API_HOST + "auths", params=params, verify=self.verify)
-        if 'status_code' in response.json() and response.json()['status_code'] >= 300:
-            #Error response.json()['message_code']
-            '''30421 - POST; Incorrect data for API call
-            30422 - POST; Credentials incorrect for app and app secret
-            30423 - POST; Error verifying app
-            30424 - POST; No paired devices'''
-            return "Error"
-        return response.json()['auth_request']
-        **/
 	auth_request request;
 	char* secret_key;
 	char* signature;

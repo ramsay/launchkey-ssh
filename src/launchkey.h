@@ -41,13 +41,15 @@ EVP_PKEY* parse_private_key(const char*);
 
 EVP_PKEY* parse_public_key(const char*);
 
-char* b64encode(char*, int);
+int b64encode(char*, int, char**);
 
-char* b64decode(char*, int);
+int b64decode(char*, int, char**);
 
 bool rsa_sign(EVP_PKEY*, const char*, char**);
 
 void encrypt_RSA(char*, const char*, char**);
+
+void decrypt_RSA(char*, const char*, char**);
 
 void sign_data(char*, char*, char**);
 
