@@ -47,6 +47,8 @@ char* b64decode(char*, int);
 
 bool rsa_sign(EVP_PKEY*, const char*, char**);
 
+void encrypt_RSA(char*, const char*, char**);
+
 void sign_data(char*, char*, char**);
 
 auth_request lk_authorize(api_data*, const char*);

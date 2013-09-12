@@ -215,19 +215,15 @@ bool rsa_sign(EVP_PKEY* private_key, const char* data, char** signature)
     return sig_len;
 }
 
-char* encrypt_RSA(char** encrypted, char* key, char* message)
+void encrypt_RSA(char* public_key_string, const char* message, char** encrypted)
 {
-	EVP_PKEY* public_key = parse_private_key(key);
+	EVP_PKEY* public_key = parse_public_key(public_key_string);
 
 	char* raw_crypt = (char *) malloc(EVP_PKEY_size(public_key));
 
-	int len = RSA_public_encrypt(
-		strlen(message), message, raw_crypt, 
-		public_key->pkey.rsa, RSA_PKCS1_PADDING
-	);
+	int len = RSA_public_encrypt(strlen(message), message, raw_crypt, public_key->pkey.rsa, RSA_PKCS1_OAEP_PADDING);
 	
 	*encrypted = b64encode(raw_crypt, len);
-	return encrypted;
 }
 
 void sign_data(char* private_key_string, char* data, char** signature)
@@ -267,9 +263,8 @@ void lk_pre_auth(api_data* api, char** encrypted_app_secret, char** signature)
 
     strftime(timestamp, 50, TIMESTAMP_FORMAT, api->ping_time);
     sprintf(to_encrypt, "{'secret': '%s', 'stamped': '%s'}", api->secret_key, timestamp);
-    other = encrypt_RSA(encrypted_app_secret, api->public_key, to_encrypt);
-    sign_data(api->private_key, other, signature);
-    *encrypted_app_secret = other;
+    encrypt_RSA(api->public_key, to_encrypt, encrypted_app_secret);
+    sign_data(api->private_key, *encrypted_app_secret, signature);
 }
 
 auth_request lk_authorize(api_data* api, const char* username) {
