@@ -243,6 +243,35 @@ void sign_data(char* private_key_string, char* data, char** signature)
 	rsa_sign(private_key, data, signature);
 }
 
+bool verify_sign(char* public_key_string, char* signature, char* data)
+{
+	EVP_PKEY* public_key = parse_public_key(public_key_string);
+
+    EVP_MD_CTX* ctx = EVP_MD_CTX_create();
+
+    const EVP_MD* md = EVP_sha256();
+
+    if (!EVP_VerifyInit(ctx, md)) {
+        return false;
+    }
+    
+    int data_len = strlen(data);
+    
+    if (!EVP_VerifyUpdate(ctx, data, data_len)) {
+        return false;
+    }
+
+    unsigned int sig_len;
+    char* raw_sig;
+    sig_len = b64decode(signature, strlen(signature), &raw_sig);
+
+	int ret = EVP_VerifyFinal(ctx, raw_sig, sig_len, public_key);
+	if (ret <= 0) {
+        return false;
+	}
+    return true;
+}
+
 void lk_ping(api_data* api)
 {
     if (api->public_key == NULL || api->ping_time == NULL) {

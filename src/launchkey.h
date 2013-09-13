@@ -53,6 +53,8 @@ void decrypt_RSA(char*, const char*, char**);
 
 void sign_data(char*, char*, char**);
 
+bool verify_sign(char*, char*, char*);
+
 auth_request lk_authorize(api_data*, const char*);
 
 auth_response lk_poll_request(api_data*, auth_request);
