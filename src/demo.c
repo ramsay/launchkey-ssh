@@ -41,8 +41,8 @@ bool readf(char* filename, char** content, bool trim)
 	(*content)[result] = '\0';
 	if (trim) {
 		int i;
-		for (i = size-1; is_whitespace(*content[i]); i--) {
-			*content[i] = '\0';
+		for (i = result-1; is_whitespace((*content)[i]); i--) {
+			(*content)[i] = '\0';
 		}
 	}
 	fclose (file);

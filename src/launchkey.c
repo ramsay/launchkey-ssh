@@ -8,7 +8,7 @@
 #define API_HOST "https://api.launchkey.com/v1"
 #define MAX_POST 10000
 #define MAX_BUFFER 500
-#define TIMESTAMP_FORMAT "%Y-%m-%0d %H:%M:%S"
+#define TIMESTAMP_FORMAT "%Y-%m-%d %H:%M:%S"
 
 static size_t
 WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
@@ -205,32 +205,6 @@ int b64decode(char* string, int length, char** decoded)
 	return dlength;
 }
 
-bool rsa_sign(EVP_PKEY* private_key, const char* data, char** signature)
-{
-    EVP_MD_CTX* ctx = EVP_MD_CTX_create();
-
-    const EVP_MD* md = EVP_sha256();
-
-    if (!EVP_SignInit(ctx, md)) {
-        return false;
-    }
-    
-    int data_len = strlen(data);
-    
-    if (!EVP_SignUpdate(ctx, data, data_len)) {
-        return false;
-    }
-
-    unsigned int sig_len;
-
-	char* raw_sig = malloc(EVP_PKEY_size(private_key));
-    if (!EVP_SignFinal(ctx, (unsigned char *)raw_sig, &sig_len, private_key)) {
-        return false;
-    }
-    sig_len = b64encode(raw_sig, sig_len, signature);
-    return sig_len;
-}
-
 void encrypt_RSA(char* public_key_string, const char* message, char** encrypted)
 {
 	EVP_PKEY* public_key = parse_public_key(public_key_string);
@@ -257,7 +231,29 @@ void decrypt_RSA(char* private_key_string, const char* package, char** decrypted
 void sign_data(char* private_key_string, char* data, char** signature)
 {
 	EVP_PKEY* private_key = parse_private_key(private_key_string);
-	rsa_sign(private_key, data, signature);
+	EVP_MD_CTX* ctx = EVP_MD_CTX_create();
+
+    const EVP_MD* md = EVP_sha256();
+
+    if (!EVP_SignInit(ctx, md)) {
+        return false;
+    }
+    
+    char* decoded = (char *) malloc (strlen(data)*2);
+    int dlength = b64decode(data, strlen(data), &decoded);
+    
+    if (!EVP_SignUpdate(ctx, decoded, dlength)) {
+        return false;
+    }
+
+    unsigned int sig_len;
+
+	char* raw_sig = malloc(EVP_PKEY_size(private_key));
+    if (!EVP_SignFinal(ctx, (unsigned char *)raw_sig, &sig_len, private_key)) {
+        return false;
+    }
+    sig_len = b64encode(raw_sig, sig_len, signature);
+    return sig_len;
 }
 
 bool verify_sign(char* public_key_string, char* signature, char* data)
@@ -305,7 +301,7 @@ void lk_ping(api_data* api)
     		cJSON_GetObjectItem(data, "launchkey_time")->valuestring, 
     		TIMESTAMP_FORMAT, 
     		api->ping_time
-    		);
+    	);
     	api->ping_difference = time(NULL);
     } else {
     	api->ping_time = time(NULL) - api->ping_difference + api->ping_time;
@@ -321,6 +317,7 @@ void lk_pre_auth(api_data* api, char** encrypted_app_secret, char** signature)
 
     strftime(timestamp, 50, TIMESTAMP_FORMAT, api->ping_time);
     sprintf(to_encrypt, "{'secret': '%s', 'stamped': '%s'}", api->secret_key, timestamp);
+    printf("%s\n", to_encrypt);
     encrypt_RSA(api->public_key, to_encrypt, encrypted_app_secret);
     sign_data(api->private_key, *encrypted_app_secret, signature);
 }

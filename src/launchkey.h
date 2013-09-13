@@ -45,8 +45,6 @@ int b64encode(char*, int, char**);
 
 int b64decode(char*, int, char**);
 
-bool rsa_sign(EVP_PKEY*, const char*, char**);
-
 void encrypt_RSA(char*, const char*, char**);
 
 void decrypt_RSA(char*, const char*, char**);

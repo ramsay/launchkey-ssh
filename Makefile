@@ -5,5 +5,5 @@ pam_launchkey.so: src/pam_launchkey.c
 demo: src/demo.c src/launchkey.c src/launchkey.h
 	gcc -o demo -ggdb src/cJSON.c src/launchkey.c src/demo.c -lcurl -lcrypto
 
-keys: src/keys.c
-	gcc -o keys -ggdb src/keys.c -lcrypto
+keys: src/launchkey.c src/launchkey.h src/keys.c
+	gcc -o keys -ggdb src/cJSON.c src/launchkey.c src/keys.c -lcrypto -lcurl
