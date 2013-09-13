@@ -233,7 +233,7 @@ void decrypt_RSA(char* private_key_string, const char* package, char** decrypted
 	char* data;
 	length = strlen(package);
 	dlength = b64decode(package, length, &data);
-
+	*decrypted = (char*) malloc(sizeof(char)*dlength);
 	RSA_private_decrypt(dlength, data, *decrypted, private_key->pkey.rsa, RSA_PKCS1_OAEP_PADDING);
 }
 
