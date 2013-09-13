@@ -6,6 +6,7 @@
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 #define API_HOST "https://api.launchkey.com/v1"
+#define MAX_POST 10000
 #define MAX_BUFFER 500
 #define TIMESTAMP_FORMAT "%Y-%m-%0d %H:%M:%S"
 
@@ -102,18 +103,25 @@ char* http_post(char* url, cJSON* data, bool verify)
  	/* we pass our 'chunk' struct to the callback function */ 
 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&chunk);
 
-	curl_easy_setopt(curl_handle, CURLOPT_POST, true);
-
-	void* post_data = (void*) malloc (sizeof(char)*MAX_BUFFER);
-	char* formfield = (char*) malloc (sizeof(char)*100);
-	cJSON* ptr = data;
+	struct curl_httppost* form = NULL;
+	struct curl_httppost* last = NULL;
+	cJSON* ptr = data->child;
+	int err;
 
 	while (ptr->next != NULL) {
-		sprintf(formfield, "%s=%s\n", ptr->string, ptr->valuestring);
-		strcat((char*)post_data, formfield);
+		err = curl_formadd(
+			&form, &last,
+			CURLFORM_COPYNAME, ptr->string,
+            CURLFORM_COPYCONTENTS, ptr->valuestring,
+            CURLFORM_END
+        );
+        if (err != 0) {
+        	printf("form add error: %d\n");
+        }
+		ptr = ptr->next;
 	}
 
-	curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, post_data);
+	curl_easy_setopt(curl_handle, CURLOPT_HTTPPOST, form);
  	/* get it! */ 
 	res = curl_easy_perform(curl_handle);
 
@@ -151,10 +159,20 @@ EVP_PKEY* parse_private_key(const char* string)
 	return PEM_read_bio_PrivateKey(mbio, NULL, NULL, NULL);
 }
 
+void strip_empty_lines(char** string)
+{
+	char* p;
+	while (strstr(*string, "\n\n")) {
+		p = strstr(*string, "\n\n");
+		strcpy(p, p+1);
+	}
+}
+
 EVP_PKEY* parse_public_key(const char* string)
 {
 	BIO *mbio;
 	mbio=BIO_new(BIO_s_mem());
+	
 	BIO_puts(mbio, string);
 
 	return PEM_read_bio_PUBKEY(mbio, NULL, NULL, NULL);
@@ -209,7 +227,6 @@ bool rsa_sign(EVP_PKEY* private_key, const char* data, char** signature)
     if (!EVP_SignFinal(ctx, (unsigned char *)raw_sig, &sig_len, private_key)) {
         return false;
     }
-
     sig_len = b64encode(raw_sig, sig_len, signature);
     return sig_len;
 }
@@ -282,6 +299,7 @@ void lk_ping(api_data* api)
     	cJSON* data = cJSON_Parse(raw_data);
     	api->public_key = (char*) malloc (sizeof(char)*MAX_BUFFER);
     	strcpy(api->public_key, cJSON_GetObjectItem(data, "key")->valuestring);
+    	strip_empty_lines(&(api->public_key));
     	api->ping_time = (struct tm*) malloc(sizeof(struct tm));
     	strptime(
     		cJSON_GetObjectItem(data, "launchkey_time")->valuestring, 
@@ -313,14 +331,17 @@ auth_request lk_authorize(api_data* api, const char* username) {
 	char* signature;
 	char* session = "True";
 	lk_pre_auth(api, &secret_key, &signature);
-	cJSON* post_data = (cJSON*) malloc (sizeof(cJSON));
+	cJSON* post_data = cJSON_CreateObject();
 	cJSON_AddStringToObject(post_data, "app_key", api->app_key);
 	cJSON_AddStringToObject(post_data, "secret_key", secret_key);
 	cJSON_AddStringToObject(post_data, "signature", signature);
 	cJSON_AddStringToObject(post_data, "username", username);
 	cJSON_AddStringToObject(post_data, "session", session);
 
-	char* raw_data = http_post(strcat(API_HOST, "/auths/"), post_data,  true);
+	char* authorize_url = (char *) malloc (512);
+	strcpy(authorize_url, API_HOST);
+	strcat(authorize_url, "/auths/");
+	char* raw_data = http_post(authorize_url, post_data,  true);
 	cJSON* data = cJSON_Parse(raw_data);
 	request.auth_request = cJSON_GetObjectItem(data, "auth_request")->valuestring;
 	return request;
