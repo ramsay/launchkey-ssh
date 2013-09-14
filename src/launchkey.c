@@ -19,7 +19,7 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
 	mem->memory = realloc(mem->memory, mem->size + realsize + 1);
 	if(mem->memory == NULL) {
     /* out of memory! */ 
-		printf("not enough memory (realloc returned NULL)\n");
+		sprintf(stderr, "not enough memory (realloc returned NULL)\n");
 		return 0;
 	}
 
@@ -86,18 +86,7 @@ char* http_get(char* base_url, cJSON* data)
 		fprintf(stderr, "curl_easy_perform() failed: %s\n",
 			curl_easy_strerror(res));
 	} else {
-	    /*
-	     * Now, our chunk.memory points to a memory block that is chunk.size
-	     * bytes big and contains the remote file.
-	     *
-	     * Do something nice with it!
-	     *
-	     * You should be aware of the fact that at this point we might have an
-	     * allocated data block, and nothing has yet deallocated that data. So when
-	     * you're done with it, you should free() it as a nice application.
-	     */ 
-
-    	printf("%lu bytes retrieved\n", (long)chunk.size);
+    	//printf("%lu bytes retrieved\n", (long)chunk.size);
 	}
  
 	/* cleanup curl stuff */ 
@@ -142,7 +131,7 @@ char* http_post(char* url, cJSON* data, bool verify)
             CURLFORM_END
         );
         if (err != 0) {
-        	printf("form add error: %d\n");
+        	fprintf(stderr, "form add error: %d\n", err);
         }
 		ptr = ptr->next;
 	}
@@ -156,18 +145,7 @@ char* http_post(char* url, cJSON* data, bool verify)
 		fprintf(stderr, "curl_easy_perform() failed: %s\n",
 			curl_easy_strerror(res));
 	} else {
-	    /*
-	     * Now, our chunk.memory points to a memory block that is chunk.size
-	     * bytes big and contains the remote file.
-	     *
-	     * Do something nice with it!
-	     *
-	     * You should be aware of the fact that at this point we might have an
-	     * allocated data block, and nothing has yet deallocated that data. So when
-	     * you're done with it, you should free() it as a nice application.
-	     */ 
-
-    	printf("%lu bytes retrieved\n", (long)chunk.size);
+    	//printf("%lu bytes retrieved\n", (long)chunk.size);
 	}
  
 	/* cleanup curl stuff */ 
@@ -212,7 +190,6 @@ int b64encode(char* string, int length, char** encoded)
 	bio = BIO_push(b64bio, mbio);
 	BIO_write(bio, string, length);
 	BIO_flush(bio);
-	//int data_length = BIO_gets(mbio, data, 1024);
 	int data_length = (int)BIO_ctrl(mbio, BIO_CTRL_INFO, 0, encoded);
 	(*encoded)[data_length] = '\0';
 	return data_length;
@@ -220,14 +197,19 @@ int b64encode(char* string, int length, char** encoded)
 
 int b64decode(char* string, int length, char** decoded)
 {
+	//Remove backslashes
+	char* sub;
+	while (strstr(string, "\\")) {
+		sub = strstr(string, "\\");
+		strcpy(sub, sub+1);
+	}
 	BIO *bio, *mbio, *b64bio;
 	mbio = BIO_new(BIO_s_mem());
 	b64bio = BIO_new(BIO_f_base64());
 	bio = BIO_push(b64bio, mbio);
-	BIO_write(mbio, string, length);
-	BIO_flush(bio);
-	*decoded = (char *) malloc (sizeof(char)*strlen(string)*2);
-	int dlength = BIO_read(bio, *decoded, strlen(string)*2);
+	int iops = BIO_write(mbio, string, length);
+	*decoded = (char *) malloc (sizeof(char)*length);
+	int dlength = BIO_read(b64bio, *decoded, length);
 	return dlength;
 }
 
@@ -254,7 +236,7 @@ void decrypt_RSA(char* private_key_string, const char* package, char** decrypted
 	RSA_private_decrypt(dlength, data, *decrypted, private_key->pkey.rsa, RSA_PKCS1_OAEP_PADDING);
 }
 
-void sign_data(char* private_key_string, char* data, char** signature)
+int sign_data(char* private_key_string, char* data, char** signature)
 {
 	EVP_PKEY* private_key = parse_private_key(private_key_string);
 	EVP_MD_CTX* ctx = EVP_MD_CTX_create();
@@ -262,21 +244,21 @@ void sign_data(char* private_key_string, char* data, char** signature)
     const EVP_MD* md = EVP_sha256();
 
     if (!EVP_SignInit(ctx, md)) {
-        return false;
+        return 0;
     }
     
     char* decoded = (char *) malloc (strlen(data)*2);
     int dlength = b64decode(data, strlen(data), &decoded);
     
     if (!EVP_SignUpdate(ctx, decoded, dlength)) {
-        return false;
+        return 0;
     }
 
     unsigned int sig_len;
 
 	char* raw_sig = malloc(EVP_PKEY_size(private_key));
     if (!EVP_SignFinal(ctx, (unsigned char *)raw_sig, &sig_len, private_key)) {
-        return false;
+        return 0;
     }
     sig_len = b64encode(raw_sig, sig_len, signature);
     return sig_len;
@@ -314,7 +296,7 @@ bool verify_sign(char* public_key_string, char* signature, char* data)
 void lk_ping(api_data* api)
 {
     if (api->public_key == NULL || api->ping_time == NULL) {
-    	char* url = (char*) malloc (sizeof(char)*MAX_BUFFER);
+    	char url[MAX_BUFFER];
     	strcpy(url, API_HOST);
     	strcat(url, "/ping/");
     	char* raw_data = http_get(url, NULL);
@@ -343,11 +325,9 @@ void lk_pre_auth(api_data* api, char** encrypted_app_secret, char** signature)
     lk_ping(api);
     char* to_encrypt = (char*) malloc (sizeof(char)*MAX_BUFFER);
     char* timestamp = (char*) malloc (sizeof(char)*50);
-    unsigned char* other;
 
     strftime(timestamp, 50, TIMESTAMP_FORMAT, api->ping_time);
     sprintf(to_encrypt, "{'secret': '%s', 'stamped': '%s'}", api->secret_key, timestamp);
-    printf("%s\n", to_encrypt);
     encrypt_RSA(api->public_key, to_encrypt, encrypted_app_secret);
     sign_data(api->private_key, *encrypted_app_secret, signature);
 }
@@ -390,17 +370,34 @@ auth_response lk_poll_request(api_data* api, auth_request request) {
 	strcat(poll_url, "/poll/");
 
 	char* raw_data = http_get(poll_url, params);
-	printf("lk_pull_request: %s\n", raw_data);
 	cJSON* data = cJSON_Parse(raw_data);
 	cJSON* auth = cJSON_GetObjectItem(data, "auth");
 	if (auth) {
 		response.auth = auth->valuestring;
 	} else {
-		response.auth = "something";
+		response.auth = NULL;
 	}
 	return response;
 }
 
 bool lk_is_authorized(api_data* api, auth_request request, char* auth) {
+	if (!request.auth_request || !auth) {
+		return false;
+	}
+	char * raw_data;
+	decrypt_RSA(api->private_key, auth, &raw_data);
+	cJSON* data = cJSON_Parse(raw_data);
+	cJSON* response = cJSON_GetObjectItem(data, "response");
+	cJSON* auth_request2 = cJSON_GetObjectItem(data, "auth_request");
+
+	if (
+		response &&
+		(strcmp(response->valuestring, "true") == 0 ||
+			strcmp(response->valuestring, "True") == 0) &&
+		auth_request2 &&
+		strcmp(request.auth_request, auth_request2->valuestring) == 0
+	) {
+		return true;
+	}
 	return false;
 }

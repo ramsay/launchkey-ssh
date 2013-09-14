@@ -49,7 +49,7 @@ void encrypt_RSA(char*, const char*, char**);
 
 void decrypt_RSA(char*, const char*, char**);
 
-void sign_data(char*, char*, char**);
+int sign_data(char*, char*, char**);
 
 bool verify_sign(char*, char*, char*);
 

@@ -20,6 +20,7 @@ bool readf(char* filename, char** content, bool trim)
  	strcpy(filepath, ROOT_DIR);
  	strcat(filepath, filename);
  	file = fopen(filepath, "r");
+
  	if (!file) {
  		return false;
  	}
@@ -54,16 +55,21 @@ bool readf(char* filename, char** content, bool trim)
 bool login(const char* username)
 {
 	api_data api;
+	api.ping_time = NULL;
 	api.app_key = "1301024551";
 	readf("/secret.key", &api.secret_key, true);
 	readf("/private.key", &api.private_key, false);
-
 	curl_global_init(CURL_GLOBAL_ALL);
 	auth_request request = lk_authorize(&api, username);
 	auth_response response;
 	response.auth = NULL;
-	while (response.auth == NULL) {
+	int count = 0;
+	while (!lk_is_authorized(&api, request, response.auth)) {
+		if (count > 6) {
+			break;
+		}
 		sleep(5);
+		count++;
 		response = lk_poll_request(&api, request);
 	}
 	bool result = lk_is_authorized(&api, request, response.auth);
