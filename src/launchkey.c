@@ -68,7 +68,6 @@ char* http_get(char* base_url, cJSON* data)
 			ptr = ptr->next;
 		}		
 	}
-	printf("http_get: %s\n", url);
  	/* specify URL to get */ 
 	curl_easy_setopt(curl_handle, CURLOPT_URL, url);
 
@@ -207,9 +206,9 @@ int b64decode(char* string, int length, char** decoded)
 	mbio = BIO_new(BIO_s_mem());
 	b64bio = BIO_new(BIO_f_base64());
 	bio = BIO_push(b64bio, mbio);
-	int iops = BIO_write(mbio, string, length);
-	*decoded = (char *) malloc (sizeof(char)*length);
-	int dlength = BIO_read(b64bio, *decoded, length);
+	int iops = BIO_write(mbio, string, strlen(string));
+	*decoded = (char *) malloc (strlen(string)*2);
+	int dlength = BIO_read(b64bio, *decoded, strlen(string)*2);
 	return dlength;
 }
 
