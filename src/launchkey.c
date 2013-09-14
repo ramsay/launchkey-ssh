@@ -30,9 +30,11 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
 	return realsize;
 }
 
-char* http_get(char* url)
+char* http_get(char* base_url, cJSON* data)
 {
 	CURL *curl_handle;
+	char* url = (char *) malloc (1024);
+	strcpy(url, base_url);
 	CURLcode res;
  
 	struct MemoryStruct chunk;
@@ -43,6 +45,30 @@ char* http_get(char* url)
  	/* init the curl session */ 
 	curl_handle = curl_easy_init();
 
+	if (data) {
+		char* param = (char *) malloc (512);
+		cJSON* ptr = data->child;
+		while (ptr) {
+			if (ptr->prev == NULL) {
+				sprintf(
+					param, 
+					"?%s=%s", 
+					ptr->string, 
+					curl_easy_escape(curl_handle, ptr->valuestring, 0)
+				);
+			} else {
+				sprintf(
+					param,
+					"&%s=%s",
+					ptr->string,
+					curl_easy_escape(curl_handle, ptr->valuestring, 0)
+				);
+			}
+			strcat(url, param);
+			ptr = ptr->next;
+		}		
+	}
+	printf("http_get: %s\n", url);
  	/* specify URL to get */ 
 	curl_easy_setopt(curl_handle, CURLOPT_URL, url);
 
@@ -291,7 +317,7 @@ void lk_ping(api_data* api)
     	char* url = (char*) malloc (sizeof(char)*MAX_BUFFER);
     	strcpy(url, API_HOST);
     	strcat(url, "/ping/");
-    	char* raw_data = http_get(url);
+    	char* raw_data = http_get(url, NULL);
     	cJSON* data = cJSON_Parse(raw_data);
     	api->public_key = (char*) malloc (sizeof(char)*MAX_BUFFER);
     	strcpy(api->public_key, cJSON_GetObjectItem(data, "key")->valuestring);
@@ -304,7 +330,11 @@ void lk_ping(api_data* api)
     	);
     	api->ping_difference = time(NULL);
     } else {
-    	api->ping_time = time(NULL) - api->ping_difference + api->ping_time;
+    	time_t now = time(NULL);
+    	double diff = difftime(now, api->ping_difference);
+    	time_t t = mktime(api->ping_time);
+    	t += diff;
+    	*api->ping_time = *localtime(&t);
     }
 }
 
@@ -346,7 +376,28 @@ auth_request lk_authorize(api_data* api, const char* username) {
 
 auth_response lk_poll_request(api_data* api, auth_request request) {
 	auth_response response;
-	response.auth = "something";
+	char* secret_key;
+	char* signature;
+	lk_pre_auth(api, &secret_key, &signature);
+	cJSON* params = cJSON_CreateObject();
+	cJSON_AddStringToObject(params, "app_key", api->app_key);
+	cJSON_AddStringToObject(params, "secret_key", secret_key);
+	cJSON_AddStringToObject(params, "signature", signature);
+	cJSON_AddStringToObject(params, "auth_request", request.auth_request);
+
+	char* poll_url = (char *) malloc (512);
+	strcpy(poll_url, API_HOST);
+	strcat(poll_url, "/poll/");
+
+	char* raw_data = http_get(poll_url, params);
+	printf("lk_pull_request: %s\n", raw_data);
+	cJSON* data = cJSON_Parse(raw_data);
+	cJSON* auth = cJSON_GetObjectItem(data, "auth");
+	if (auth) {
+		response.auth = auth->valuestring;
+	} else {
+		response.auth = "something";
+	}
 	return response;
 }
 
