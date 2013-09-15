@@ -53,5 +53,17 @@ Now restart the ssh service on your host machine, and test. It should now prompt
     $ ssh localhost
     Password: *********
     LaunchKey username: rramsay
+    Welcome to Ubuntu 12.04 LTS (GNU/Linux 3.2.0-23-generic-pae i686)
     
+     * Documentation:  https://help.ubuntu.com/
+    Welcome to your Vagrant-built virtual machine.
+    
+    The programs included with the Ubuntu system are free software;
+    the exact distribution terms for each program are described in the
+    individual files in /usr/share/doc/*/copyright.
+    
+    Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+    applicable law.
+    
+    robert@precise32:~$
     
