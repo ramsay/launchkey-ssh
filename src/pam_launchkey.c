@@ -8,6 +8,8 @@
 #include <security/pam_modutil.h>
 #include <security/pam_ext.h>
 
+#include "launchkey.h"
+
 /*****************************************************************************
  * lk_login - A synchronous full LaunchKey authentication method. It will 
  *     attempt to poll the authenticaiton request 6 times waiting 5 seconds
@@ -111,9 +113,9 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
     if (
         argc < 3 || // Not enough config arguments
         !strlen(argv[0]) || // App ID empty
-        !strlen(stargv[1]) || // App Secret Key empty
+        !strlen(argv[1]) || // App Secret Key empty
         !strlen(argv[2]) || // App Private Key File path empty
-        !fopen(argv[2], 'r') // Unable to open Private Key File
+        !fopen(argv[2], "r") // Unable to open Private Key File
     ) {
         return PAM_CRED_INSUFFICIENT; // Improperly configured.
     }
