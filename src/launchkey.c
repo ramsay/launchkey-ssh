@@ -252,9 +252,12 @@ void decrypt_RSA(char* private_key_string, const char* package, char** decrypted
 	EVP_PKEY* private_key = parse_private_key(private_key_string);
 
 	int length, dlength;
+	char* mpackage;
 	char* data;
 	length = strlen(package);
-	dlength = b64decode(package, length, &data);
+	mpackage = (char *) malloc(length+1);
+	strncpy(mpackage, package, length+1);
+	dlength = b64decode(mpackage, length, &data);
 	*decrypted = (char*) malloc(sizeof(char)*dlength);
 	RSA_private_decrypt(dlength, data, *decrypted, private_key->pkey.rsa, RSA_PKCS1_OAEP_PADDING);
 }

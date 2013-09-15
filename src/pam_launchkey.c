@@ -10,6 +10,46 @@
 
 #include "launchkey.h"
 
+bool is_whitespace(char c)
+{
+    return c == ' ' || c == '\n' || c == '\t';
+}
+
+bool readf(char * filepath, char** content, bool trim)
+{
+    FILE* fp = fopen(filepath, "r");
+    size_t file_length, result;
+    if (!fp) {
+        return false;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    file_length = ftell(fp);
+    rewind(fp);
+    
+    if (file_length < 1) {
+        return false;
+    }
+
+    *content = (char *) malloc(file_length);
+    if (!*content) {
+        return false;
+    }
+    result = fread(*content, 1, file_length, fp);
+    if (result != file_length) {
+        return false;
+    }
+    if (trim) {
+        char * p = *content+(result-1);
+        while (is_whitespace(*p)) {
+            *p = '\0';
+            p--;
+        }
+    }
+    fclose(fp);
+    return true;
+}
+
 /*****************************************************************************
  * lk_login - A synchronous full LaunchKey authentication method. It will 
  *     attempt to poll the authenticaiton request 6 times waiting 5 seconds
@@ -35,20 +75,26 @@ bool lk_login(
      */
     api_data api;
     api.ping_time = NULL;
+    api.app_key = (char *) malloc (strlen(app_key)+1);
     strcpy(api.app_key, app_key);
+    api.secret_key = (char *) malloc (strlen(secret_key)+1);
     strcpy(api.secret_key, secret_key);
-    readf(private_key_file, &api.private_key, false);
-    
-    /**
-     * Setup curl library for subsequent HTTP API requests.
-     */
-    curl_global_init(CURL_GLOBAL_ALL);
+    if (!readf(private_key_file, &api.private_key, false)) {
+        pam_syslog(
+            pamh, LOG_ERR, 
+            "Error reading private key file: %s", private_key_file
+        );
+        return false;
+    }
+    pam_syslog(pamh, LOG_NOTICE, "%s %s", "Loaded private_key: %s", api.private_key);
     
     /**
      * Initial authentication process
      */
     auth_request request = lk_authorize(&api, username);
-    
+    if (!request.auth_request) {
+        pam_syslog(pamh, LOG_ERR, "Unable to authorize launchkey user.");
+    }
     /**
      * Initialize auth_response to a null state.
      */
@@ -65,6 +111,7 @@ bool lk_login(
          */
         if (count > 6) {
             break;
+            pam_syslog(pamh, LOG_WARNING, "Reached max attempts for launchkey poll.");
         }
         /**
          * Wait 5 seconds to allow for push notificaiton latency and
@@ -84,11 +131,6 @@ bool lk_login(
      */
     bool result = lk_is_authorized(&api, request, response.auth);
     
-    /**
-     * All curl HTTP calls have completed, so cleanup the curl library.
-     */
-    curl_global_cleanup();
-
     return result;
 }
 
@@ -114,8 +156,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
         argc < 3 || // Not enough config arguments
         !strlen(argv[0]) || // App ID empty
         !strlen(argv[1]) || // App Secret Key empty
-        !strlen(argv[2]) || // App Private Key File path empty
-        !fopen(argv[2], "r") // Unable to open Private Key File
+        !strlen(argv[2]) // App Private Key File path empty
     ) {
         return PAM_CRED_INSUFFICIENT; // Improperly configured.
     }
