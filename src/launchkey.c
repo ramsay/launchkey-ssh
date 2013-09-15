@@ -1,10 +1,13 @@
+#define _XOPEN_SOURCE
 #include <stdio.h>
-#include "launchkey.h"
-#include "cJSON.h"
 #include <openssl/pem.h>
 #include <openssl/crypto.h>
 #include <openssl/sha.h>
 #include <openssl/evp.h>
+
+#include "launchkey.h"
+#include "cJSON.h"
+
 #define API_HOST "https://api.launchkey.com/v1"
 #define MAX_POST 10000
 #define MAX_BUFFER 500
@@ -162,13 +165,21 @@ EVP_PKEY* parse_private_key(const char* string)
 	return PEM_read_bio_PrivateKey(mbio, NULL, NULL, NULL);
 }
 
-void strip_empty_lines(char** string)
+void fix_public_key(char** string)
 {
-	char* p;
-	while (strstr(*string, "\n\n")) {
-		p = strstr(*string, "\n\n");
-		strcpy(p, p+1);
+        char* buffer = (char *) malloc (strlen(*string));
+	char* begin;
+	char* end;
+	begin = strstr(*string, "\n\n");
+	end = strstr(begin+2, "\n\n");
+	
+	if (begin && end) {
+		strncpy(buffer, *string, (begin+1) - *string);
+		strncat(buffer, begin+2, end - (begin+2));
+		strncat(buffer, end+1, strlen(end+1)+1);
 	}
+	strcpy(*string, buffer);
+	free(buffer);
 }
 
 EVP_PKEY* parse_public_key(const char* string)
@@ -302,7 +313,7 @@ void lk_ping(api_data* api)
     	cJSON* data = cJSON_Parse(raw_data);
     	api->public_key = (char*) malloc (sizeof(char)*MAX_BUFFER);
     	strcpy(api->public_key, cJSON_GetObjectItem(data, "key")->valuestring);
-    	strip_empty_lines(&(api->public_key));
+    	fix_public_key(&(api->public_key));
     	api->ping_time = (struct tm*) malloc(sizeof(struct tm));
     	strptime(
     		cJSON_GetObjectItem(data, "launchkey_time")->valuestring, 

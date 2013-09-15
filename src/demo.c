@@ -4,7 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "launchkey.h"
-#define ROOT_DIR "/Users/rramsay/workspace/ramsay/launchkey-ssh"
+#define ROOT_DIR "/home/robert/workspace/ramsay/launchkey-ssh"
 #define MAX_BUFFER 500
 
 bool is_whitespace(char c) {
