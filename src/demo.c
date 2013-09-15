@@ -4,7 +4,6 @@
 #include <string.h>
 #include <unistd.h>
 #include "launchkey.h"
-#define ROOT_DIR "/home/robert/workspace/ramsay/launchkey-ssh"
 #define MAX_BUFFER 500
 
 bool is_whitespace(char c) {
@@ -14,12 +13,9 @@ bool is_whitespace(char c) {
 bool readf(char* filename, char** content, bool trim)
 {
 	FILE * file;
-	char* filepath = (char*) malloc(sizeof(char)*MAX_BUFFER);
 	long size;
  	size_t result;
- 	strcpy(filepath, ROOT_DIR);
- 	strcat(filepath, filename);
- 	file = fopen(filepath, "r");
+ 	file = fopen(filename, "r");
 
  	if (!file) {
  		return false;
@@ -57,8 +53,8 @@ bool login(const char* username)
 	api_data api;
 	api.ping_time = NULL;
 	api.app_key = "1301024551";
-	readf("/secret.key", &api.secret_key, true);
-	readf("/private.key", &api.private_key, false);
+	readf("secret.key", &api.secret_key, true);
+	readf("private.key", &api.private_key, false);
 	curl_global_init(CURL_GLOBAL_ALL);
 	auth_request request = lk_authorize(&api, username);
 	auth_response response;
