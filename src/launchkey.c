@@ -22,7 +22,7 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
 	mem->memory = realloc(mem->memory, mem->size + realsize + 1);
 	if(mem->memory == NULL) {
     /* out of memory! */ 
-		sprintf(stderr, "not enough memory (realloc returned NULL)\n");
+		fprintf(stderr, "not enough memory (realloc returned NULL)\n");
 		return 0;
 	}
 
@@ -167,14 +167,14 @@ EVP_PKEY* parse_private_key(const char* string)
 
 void fix_public_key(char** string)
 {
-        char* buffer = (char *) malloc (strlen(*string));
+    char* buffer = (char *) malloc (strlen(*string));
 	char* begin;
 	char* end;
 	begin = strstr(*string, "\n\n");
 	end = strstr(begin+2, "\n\n");
-	
+	strcpy(buffer, "");
 	if (begin && end) {
-		strncpy(buffer, *string, (begin+1) - *string);
+		strncat(buffer, *string, (begin+1) - *string);
 		strncat(buffer, begin+2, end - (begin+2));
 		strncat(buffer, end+1, strlen(end+1)+1);
 	}
@@ -205,28 +205,27 @@ int b64encode(char* string, int length, char** encoded)
 	return data_length;
 }
 
-void remove_backslashes(char** string)
+int remove_backslashes(char** string, int max_size)
 {
-	char* buffer = (char *) malloc (strlen(*string));
+	char* buffer = (char *) malloc (max_size);
 	char* p = *string;
-	char* end = strstr(p, "\\");
-
-	while (end) {
-		strncat(buffer, p, end-p);
-		p = end+1;
-		end = strstr(p, "\\");
+	int i = 0;
+	while (i < max_size) {
+		if (*p =='\0') {
+			buffer[i++] = *p;
+			break;
+		} else if (*p != '\\') {
+			buffer[i++] = *p;
+		}
+		p++;
 	}
-	if (strlen(p)) {
-		strcat(buffer, p);
-	}
-	strcpy(*string, buffer);
+	strncpy(*string, buffer, i);
 	free(buffer);
+	return i;
 }
 
 int b64decode(char* string, int length, char** decoded)
 {
-	remove_backslashes(&string);
-
 	BIO *bio, *mbio, *b64bio;
 	mbio = BIO_new(BIO_s_mem());
 	b64bio = BIO_new(BIO_f_base64());
@@ -237,7 +236,7 @@ int b64decode(char* string, int length, char** decoded)
 	return dlength;
 }
 
-void encrypt_RSA(char* public_key_string, const char* message, char** encrypted)
+int encrypt_RSA(char* public_key_string, const char* message, char** encrypted)
 {
 	EVP_PKEY* public_key = parse_public_key(public_key_string);
 
@@ -245,7 +244,7 @@ void encrypt_RSA(char* public_key_string, const char* message, char** encrypted)
 
 	int len = RSA_public_encrypt(strlen(message), message, raw_crypt, public_key->pkey.rsa, RSA_PKCS1_OAEP_PADDING);
 	
-	b64encode(raw_crypt, len, encrypted);
+	return b64encode(raw_crypt, len, encrypted);
 }
 
 void decrypt_RSA(char* private_key_string, const char* package, char** decrypted)
@@ -260,8 +259,9 @@ void decrypt_RSA(char* private_key_string, const char* package, char** decrypted
 	RSA_private_decrypt(dlength, data, *decrypted, private_key->pkey.rsa, RSA_PKCS1_OAEP_PADDING);
 }
 
-int sign_data(char* private_key_string, char* data, char** signature)
-{
+int sign_data(
+	char* private_key_string, char* data, int data_length, char** signature
+) {
 	EVP_PKEY* private_key = parse_private_key(private_key_string);
 	EVP_MD_CTX* ctx = EVP_MD_CTX_create();
 
@@ -271,8 +271,8 @@ int sign_data(char* private_key_string, char* data, char** signature)
         return 0;
     }
     
-    char* decoded = (char *) malloc (strlen(data)*2);
-    int dlength = b64decode(data, strlen(data), &decoded);
+    char* decoded;
+    int dlength = b64decode(data, data_length, &decoded);
     
     if (!EVP_SignUpdate(ctx, decoded, dlength)) {
         return 0;
@@ -347,13 +347,13 @@ void lk_ping(api_data* api)
 void lk_pre_auth(api_data* api, char** encrypted_app_secret, char** signature)
 {
     lk_ping(api);
-    char* to_encrypt = (char*) malloc (sizeof(char)*MAX_BUFFER);
-    char* timestamp = (char*) malloc (sizeof(char)*50);
+    char* to_encrypt = (char *) malloc (500);
+    char timestamp[50];
 
     strftime(timestamp, 50, TIMESTAMP_FORMAT, api->ping_time);
     sprintf(to_encrypt, "{'secret': '%s', 'stamped': '%s'}", api->secret_key, timestamp);
-    encrypt_RSA(api->public_key, to_encrypt, encrypted_app_secret);
-    sign_data(api->private_key, *encrypted_app_secret, signature);
+    int encrypted_length = encrypt_RSA(api->public_key, to_encrypt, encrypted_app_secret);
+    sign_data(api->private_key, *encrypted_app_secret, encrypted_length, signature);
 }
 
 auth_request lk_authorize(api_data* api, const char* username) {
@@ -408,6 +408,7 @@ bool lk_is_authorized(api_data* api, auth_request request, char* auth) {
 	if (!request.auth_request || !auth) {
 		return false;
 	}
+	int length = remove_backslashes(&auth, 500);
 	char * raw_data;
 	decrypt_RSA(api->private_key, auth, &raw_data);
 	cJSON* data = cJSON_Parse(raw_data);

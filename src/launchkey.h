@@ -45,11 +45,11 @@ int b64encode(char*, int, char**);
 
 int b64decode(char*, int, char**);
 
-void encrypt_RSA(char*, const char*, char**);
+int encrypt_RSA(char*, const char*, char**);
 
 void decrypt_RSA(char*, const char*, char**);
 
-int sign_data(char*, char*, char**);
+int sign_data(char*, char*, int, char**);
 
 bool verify_sign(char*, char*, char*);
 
