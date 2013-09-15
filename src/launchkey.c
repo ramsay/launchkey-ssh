@@ -205,14 +205,28 @@ int b64encode(char* string, int length, char** encoded)
 	return data_length;
 }
 
+void remove_backslashes(char** string)
+{
+	char* buffer = (char *) malloc (strlen(*string));
+	char* p = *string;
+	char* end = strstr(p, "\\");
+
+	while (end) {
+		strncat(buffer, p, end-p);
+		p = end+1;
+		end = strstr(p, "\\");
+	}
+	if (strlen(p)) {
+		strcat(buffer, p);
+	}
+	strcpy(*string, buffer);
+	free(buffer);
+}
+
 int b64decode(char* string, int length, char** decoded)
 {
-	//Remove backslashes
-	char* sub;
-	while (strstr(string, "\\")) {
-		sub = strstr(string, "\\");
-		strcpy(sub, sub+1);
-	}
+	remove_backslashes(&string);
+
 	BIO *bio, *mbio, *b64bio;
 	mbio = BIO_new(BIO_s_mem());
 	b64bio = BIO_new(BIO_f_base64());
