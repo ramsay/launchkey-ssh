@@ -15,7 +15,7 @@ bool is_whitespace(char c)
     return c == ' ' || c == '\n' || c == '\t';
 }
 
-bool readf(char * filepath, char** content, bool trim)
+bool readf(const char * filepath, char** content, bool trim)
 {
     FILE* fp = fopen(filepath, "r");
     size_t file_length, result;
@@ -65,9 +65,9 @@ bool readf(char * filepath, char** content, bool trim)
  ****************************************************************************/
 bool lk_login(
     pam_handle_t *pamh, 
-    char* app_key, 
-    char* secret_key, 
-    char* private_key_file,
+    const char* app_key, 
+    const char* secret_key, 
+    const char* private_key_file,
     char* username
 ) {
     /**
