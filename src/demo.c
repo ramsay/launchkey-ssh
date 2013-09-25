@@ -10,7 +10,7 @@ bool is_whitespace(char c) {
 	return (c == ' ' || c == '\t' || c == '\r' || c == '\n');
 }
 
-bool readf(char* filename, char** content, bool trim)
+bool readf(const char* filename, char** content, bool trim)
 {
 	FILE * file;
 	long size;
@@ -48,13 +48,19 @@ bool readf(char* filename, char** content, bool trim)
 
 
 
-bool login(const char* username)
-{
+bool login(
+	const char* app_key,
+	const char* secret_key,
+	const char* private_key_file,
+	const char* username
+) {
 	api_data api;
 	api.ping_time = NULL;
-	api.app_key = "1301024551";
-	readf("secret.key", &api.secret_key, true);
-	readf("private.key", &api.private_key, false);
+	api.app_key = (char *) malloc(strlen(app_key)+1);
+	strcpy(api.app_key, app_key);
+	api.secret_key = (char *) malloc(strlen(secret_key)+1);
+	strcpy(api.secret_key, secret_key);
+	readf(private_key_file, &api.private_key, true);
 	curl_global_init(CURL_GLOBAL_ALL);
 	auth_request request = lk_authorize(&api, username);
 	auth_response response;
@@ -74,7 +80,14 @@ bool login(const char* username)
 }
 
 int main(int argc, char* argv[]) {
-	bool authenticated = login("rramsay");
+	if (argc < 4) {
+		printf("usage: demo app_key app_secret /path/to/private_key");
+		return 1;
+	}
+	char* username = (char *) malloc (100);
+	printf("Launchkey Username: ");
+	scanf("%s", username);
+	bool authenticated = login(argv[1], argv[2], argv[3], username);
 	if (authenticated) {
 		printf("You have been authenticated.\n");
 	} else {
