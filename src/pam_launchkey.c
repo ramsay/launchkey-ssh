@@ -39,11 +39,11 @@ bool readf(const char * filepath, char** content, bool trim)
     if (result != file_length) {
         return false;
     }
+    (*content)[result] = '\0';
     if (trim) {
-        char * p = *content+(result-1);
-        while (is_whitespace(*p)) {
-            *p = '\0';
-            p--;
+        int i;
+        for (i = result-1; is_whitespace((*content)[i]); i--) {
+            (*content)[i] = '\0';
         }
     }
     fclose(fp);
