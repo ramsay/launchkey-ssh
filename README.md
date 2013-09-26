@@ -16,12 +16,11 @@ To install, first create a LaunchKey app at https://dashboard.launchkey.com/my/n
 
 	* App Key
 	* Secret Key
-	* Public Key
 	* Private Key (Store this in a text file, such as private.key)
 
 Next, install the dependencies:
 
-    $ sudo apt-get install make libpam0g-dev libopenssl libcurl4-openssl-dev
+    $ sudo apt-get install make libpam0g-dev libcrypt11-dev libcurl4-openssl-dev
 
 Now build the LaunchKey shared PAM module, and add it to the security directory:
 

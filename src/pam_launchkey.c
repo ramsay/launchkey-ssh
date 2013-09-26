@@ -15,7 +15,7 @@ bool is_whitespace(char c)
     return c == ' ' || c == '\n' || c == '\t';
 }
 
-bool readf(char * filepath, char** content, bool trim)
+bool readf(const char * filepath, char** content, bool trim)
 {
     FILE* fp = fopen(filepath, "r");
     size_t file_length, result;
@@ -39,11 +39,11 @@ bool readf(char * filepath, char** content, bool trim)
     if (result != file_length) {
         return false;
     }
+    (*content)[result] = '\0';
     if (trim) {
-        char * p = *content+(result-1);
-        while (is_whitespace(*p)) {
-            *p = '\0';
-            p--;
+        int i;
+        for (i = result-1; is_whitespace((*content)[i]); i--) {
+            (*content)[i] = '\0';
         }
     }
     fclose(fp);
@@ -65,9 +65,9 @@ bool readf(char * filepath, char** content, bool trim)
  ****************************************************************************/
 bool lk_login(
     pam_handle_t *pamh, 
-    char* app_key, 
-    char* secret_key, 
-    char* private_key_file,
+    const char* app_key, 
+    const char* secret_key, 
+    const char* private_key_file,
     char* username
 ) {
     /**
