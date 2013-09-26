@@ -6,7 +6,7 @@ launchkey.o: src/launchkey.c src/launchkey.h
 	gcc -fPIC -c src/launchkey.c
 
 cJSON.o: src/cJSON.c
-	gcc -c src/cJSON.c
+	gcc -fPIC -c src/cJSON.c
 
 demo: cJSON.o launchkey.o src/demo.c
 	gcc -o demo -ggdb -g -Wall cJSON.o launchkey.o src/demo.c -lm -lcurl -lcrypto
