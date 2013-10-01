@@ -28,14 +28,17 @@ bool readf(const char * filepath, char** content, bool trim)
     rewind(fp);
     
     if (file_length < 1) {
+        fclose(fp);
         return false;
     }
 
     *content = (char *) malloc(file_length);
     if (!*content) {
+        fclose(fp);
         return false;
     }
     result = fread(*content, 1, file_length, fp);
+    fclose(fp);
     if (result != file_length) {
         return false;
     }
@@ -46,7 +49,6 @@ bool readf(const char * filepath, char** content, bool trim)
             (*content)[i] = '\0';
         }
     }
-    fclose(fp);
     return true;
 }
 
@@ -86,7 +88,7 @@ bool lk_login(
         );
         return false;
     }
-    pam_syslog(pamh, LOG_NOTICE, "%s %s", "Loaded private_key: %s", api.private_key);
+    //pam_syslog(pamh, LOG_NOTICE, "Loaded private_key: %s", api.private_key);
     
     /**
      * Initial authentication process
@@ -161,11 +163,13 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
         return PAM_CRED_INSUFFICIENT; // Improperly configured.
     }
 
-	char **response;
+	char *response;
 	int rc;
-	rc = pam_prompt(pamh, PAM_PROMPT_ECHO_ON, response, "LaunchKey Username: ");
+    response = (char *) malloc (120);
+	rc = pam_prompt(
+        pamh, PAM_PROMPT_ECHO_ON, &response, "LaunchKey Username: ");
 	
-    if (*response == NULL) {
+    if (response == NULL) {
         rc = PAM_CONV_ERR;
     }
 
@@ -173,9 +177,9 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
         pam_syslog(pamh, LOG_WARNING, "No response to query: %s", "LaunchKey Username");
         return rc;
     }
-    pam_syslog(pamh, LOG_NOTICE, "%s %s", "LaunchKey Username", *response);
+    pam_syslog(pamh, LOG_NOTICE, "%s %s", "LaunchKey Username", response);
 
-    if (lk_login(pamh, argv[0], argv[1], argv[2], *response)) {
+    if (lk_login(pamh, argv[0], argv[1], argv[2], response)) {
         return PAM_SUCCESS;
     }
     return PAM_AUTH_ERR;

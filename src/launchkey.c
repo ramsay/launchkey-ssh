@@ -22,7 +22,7 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
 	mem->memory = realloc(mem->memory, mem->size + realsize + 1);
 	if(mem->memory == NULL) {
     /* out of memory! */ 
-		fprintf(stderr, "not enough memory (realloc returned NULL)\n");
+		//fprintf(stderr, "not enough memory (realloc returned NULL)\n");
 		return 0;
 	}
 
@@ -69,7 +69,8 @@ char* http_get(char* base_url, cJSON* data)
 			}
 			strcat(url, param);
 			ptr = ptr->next;
-		}		
+		}
+		free(param);
 	}
  	/* specify URL to get */ 
 	curl_easy_setopt(curl_handle, CURLOPT_URL, url);
@@ -85,8 +86,8 @@ char* http_get(char* base_url, cJSON* data)
 
  	/* check for errors */ 
 	if (res != CURLE_OK) {
-		fprintf(stderr, "curl_easy_perform() failed: %s\n",
-			curl_easy_strerror(res));
+		//fprintf(stderr, "curl_easy_perform() failed: %s\n",
+		//	curl_easy_strerror(res));
 	} else {
     	//printf("%lu bytes retrieved\n", (long)chunk.size);
 	}
@@ -133,7 +134,7 @@ char* http_post(char* url, cJSON* data, bool verify)
             CURLFORM_END
         );
         if (err != 0) {
-        	fprintf(stderr, "form add error: %d\n", err);
+        	//fprintf(stderr, "form add error: %d\n", err);
         }
 		ptr = ptr->next;
 	}
@@ -144,8 +145,8 @@ char* http_post(char* url, cJSON* data, bool verify)
 
  	/* check for errors */ 
 	if (res != CURLE_OK) {
-		fprintf(stderr, "curl_easy_perform() failed: %s\n",
-			curl_easy_strerror(res));
+		//fprintf(stderr, "curl_easy_perform() failed: %s\n",
+		//	curl_easy_strerror(res));
 	} else {
     	//printf("%lu bytes retrieved\n", (long)chunk.size);
 	}
@@ -404,6 +405,7 @@ auth_response lk_poll_request(api_data* api, auth_request request) {
 	} else {
 		response.auth = NULL;
 	}
+	free(poll_url);
 	return response;
 }
 

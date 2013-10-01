@@ -28,10 +28,12 @@ bool readf(const char* filename, char** content, bool trim)
 	// allocate memory to contain the whole file:
 	*content = (char*) malloc (sizeof(char)*size);
 	if (*content == NULL) {
+		fclose(file);
 		return false;
 	}
 
 	result = fread(*content, 1, size, file);
+	fclose(file);
 	if (result != size) {
 		return false;
 	}
@@ -42,7 +44,6 @@ bool readf(const char* filename, char** content, bool trim)
 			(*content)[i] = '\0';
 		}
 	}
-	fclose (file);
 	return true;
 }
 
