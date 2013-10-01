@@ -18,7 +18,7 @@ cJSON.o: src/cJSON.c
 .PHONY: install clean all
 
 install: pam_launchkey.so
-	install -D pam_launckey.so $(prefix)/pam_launchkey.so
+	install -D pam_launchkey.so $(prefix)/pam_launchkey.so
 
 clean:
 	rm *.o *.so demo
