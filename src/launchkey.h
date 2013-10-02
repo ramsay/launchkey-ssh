@@ -53,7 +53,7 @@ int sign_data(char*, char*, int, char**);
 
 bool verify_sign(char*, char*, char*);
 
-auth_request lk_authorize(api_data*, const char*);
+auth_request lk_authorize(api_data*, const char*, bool);
 
 auth_response lk_poll_request(api_data*, auth_request);
 

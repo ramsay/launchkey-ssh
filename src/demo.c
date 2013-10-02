@@ -63,7 +63,7 @@ bool login(
 	strcpy(api.secret_key, secret_key);
 	readf(private_key_file, &api.private_key, true);
 	curl_global_init(CURL_GLOBAL_ALL);
-	auth_request request = lk_authorize(&api, username);
+	auth_request request = lk_authorize(&api, username, false);
 	auth_response response;
 	response.auth = NULL;
 	int count = 0;
