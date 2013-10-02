@@ -93,7 +93,7 @@ bool lk_login(
     /**
      * Initial authentication process
      */
-    auth_request request = lk_authorize(&api, username);
+    auth_request request = lk_authorize(&api, username, false);
     if (!request.auth_request) {
         pam_syslog(pamh, LOG_ERR, "Unable to authorize launchkey user.");
     }

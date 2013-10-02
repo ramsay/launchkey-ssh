@@ -360,18 +360,21 @@ void lk_pre_auth(api_data* api, char** encrypted_app_secret, char** signature)
     sign_data(api->private_key, *encrypted_app_secret, encrypted_length, signature);
 }
 
-auth_request lk_authorize(api_data* api, const char* username) {
+auth_request lk_authorize(api_data* api, const char* username, bool session) {
 	auth_request request;
 	char* secret_key;
 	char* signature;
-	char* session = "True";
 	lk_pre_auth(api, &secret_key, &signature);
 	cJSON* post_data = cJSON_CreateObject();
 	cJSON_AddStringToObject(post_data, "app_key", api->app_key);
 	cJSON_AddStringToObject(post_data, "secret_key", secret_key);
 	cJSON_AddStringToObject(post_data, "signature", signature);
 	cJSON_AddStringToObject(post_data, "username", username);
-	cJSON_AddStringToObject(post_data, "session", session);
+	if (session) {
+		cJSON_AddTrueToObject(post_data, "session");
+	} else {
+		cJSON_AddFalseToObject(post_data, "session");
+	}
 
 	char* authorize_url = (char *) malloc (512);
 	strcpy(authorize_url, API_HOST);
