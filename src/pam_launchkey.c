@@ -52,6 +52,37 @@ bool readf(const char * filepath, char** content, bool trim)
     return true;
 }
 
+void get_user_hash(const char* username, char** user_hash)
+{
+    char* filepath = (char*)malloc(255);
+    strcpy(filepath, "/etc/launchkey/");
+    strcat(filepath, username);
+    bool success = readf(filepath, user_hash, true);
+    if (!success) {
+        user_hash = NULL;
+    }
+}
+
+bool set_user_hash(const char* username, char* user_hash)
+{
+    char* filepath = (char*) malloc (255);
+    strcpy(filepath, "etc/launchkey/");
+    strcat(filepath, username);
+    FILE* fp = fopen(filepath, "w");
+    if (fp == NULL) {
+        fclose(fp);
+        return false;
+    }
+    int size = fputs(user_hash, fp);
+    fclose(fp);
+    
+    if (size < 1 && size != strlen(user_hash)) {
+        return false;
+    }
+
+    return true;
+}
+
 /*****************************************************************************
  * lk_login - A synchronous full LaunchKey authentication method. It will 
  *     attempt to poll the authenticaiton request 6 times waiting 5 seconds
@@ -133,6 +164,26 @@ bool lk_login(
      */
     bool result = lk_is_authorized(&api, request, response.auth);
     
+    if (result) {
+        /**
+         * Store or Verify the user_hash
+         */
+        char* user_hash;
+        const char* lusername;
+        int retval = pam_get_user(pamh, &lusername, NULL);
+        if (retval != PAM_SUCCESS) {
+            pam_syslog(pamh, LOG_ERR, "%s", "Unable to get local username.");
+            return false;
+        }
+        get_user_hash(lusername, &user_hash);
+        if (user_hash == NULL) {
+            pam_syslog(pamh, LOG_NOTICE, "No user hash for %s, creating.", lusername);
+            set_user_hash(lusername, response.user_hash);
+        } else if (strcmp(user_hash, response.user_hash) != 0) {
+            pam_syslog(pamh, LOG_ERR, "User hash did not match: %s %s", user_hash, response.user_hash);
+            return false;
+        }
+    }
     return result;
 }
 
