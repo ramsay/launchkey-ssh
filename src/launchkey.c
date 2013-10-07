@@ -403,10 +403,16 @@ auth_response lk_poll_request(api_data* api, auth_request request) {
 	char* raw_data = http_get(poll_url, params);
 	cJSON* data = cJSON_Parse(raw_data);
 	cJSON* auth = cJSON_GetObjectItem(data, "auth");
+	cJSON* user_hash = cJSON_GetObjectItem(data, "user_hash");
 	if (auth) {
 		response.auth = auth->valuestring;
 	} else {
 		response.auth = NULL;
+	}
+	if (user_hash) {
+		response.user_hash = user_hash->valuestring;
+	} else {
+		response.user_hash = NULL;
 	}
 	free(poll_url);
 	return response;
