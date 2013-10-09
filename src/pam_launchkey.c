@@ -138,7 +138,7 @@ bool lk_login(
      * Create a poll iteration counter.
      */
     int count = 0;
-    while (!lk_is_authorized(&api, request, response.auth)) {
+    while (response.auth == NULL) {
         /**
          * After 6 tries to get a proper authentication response, give up.
          */

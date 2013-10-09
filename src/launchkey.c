@@ -72,6 +72,7 @@ char* http_get(char* base_url, cJSON* data)
 		}
 		free(param);
 	}
+	
  	/* specify URL to get */ 
 	curl_easy_setopt(curl_handle, CURLOPT_URL, url);
 
@@ -126,13 +127,14 @@ char* http_post(char* url, cJSON* data, bool verify)
 	cJSON* ptr = data->child;
 	int err;
 
-	while (ptr->next != NULL) {
+	while (ptr != NULL) {
 		err = curl_formadd(
 			&form, &last,
 			CURLFORM_COPYNAME, ptr->string,
             CURLFORM_COPYCONTENTS, ptr->valuestring,
             CURLFORM_END
         );
+
         if (err != 0) {
         	//fprintf(stderr, "form add error: %d\n", err);
         }
@@ -371,9 +373,9 @@ auth_request lk_authorize(api_data* api, const char* username, bool session) {
 	cJSON_AddStringToObject(post_data, "signature", signature);
 	cJSON_AddStringToObject(post_data, "username", username);
 	if (session) {
-		cJSON_AddTrueToObject(post_data, "session");
+		cJSON_AddStringToObject(post_data, "session", "True");
 	} else {
-		cJSON_AddFalseToObject(post_data, "session");
+		cJSON_AddStringToObject(post_data, "session", "False");
 	}
 
 	char* authorize_url = (char *) malloc (512);

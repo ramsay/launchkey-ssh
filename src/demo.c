@@ -67,13 +67,14 @@ bool login(
 	auth_response response;
 	response.auth = NULL;
 	int count = 0;
-	while (!lk_is_authorized(&api, request, response.auth)) {
+	while (response.auth == NULL) {
 		if (count > 6) {
 			break;
 		}
 		sleep(5);
 		count++;
 		response = lk_poll_request(&api, request);
+
 	}
 	bool result = lk_is_authorized(&api, request, response.auth);
 	curl_global_cleanup();
