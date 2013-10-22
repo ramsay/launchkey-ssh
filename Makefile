@@ -1,5 +1,3 @@
-prefix = /lib/security
-
 all: pam_launchkey.so
 
 pam_launchkey.so: cJSON.o launchkey.o src/pam_launchkey.c
@@ -18,8 +16,10 @@ cJSON.o: src/cJSON.c
 .PHONY: install clean all
 
 install: pam_launchkey.so
-	install -D pam_launchkey.so $(prefix)/pam_launchkey.so
+	install -D pam_launchkey.so $(DESTDIR)/lib/security/pam_launchkey.so
+	install -d $(DESTDIR)/etc/launchkey
 
 clean:
-	rm *.o *.so demo
+	rm -f *.o *.so demo
+
 
