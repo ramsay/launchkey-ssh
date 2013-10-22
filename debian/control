@@ -1,0 +1,15 @@
+Source: launchkey-ssh
+Section: unknown
+Priority: extra
+Maintainer: Robert Ramsay <support@launchkey.com>
+Build-Depends: debhelper (>= 8.0.0), libcurl4-openssl-dev, libpam0g-dev
+Standards-Version: 3.9.4
+Homepage: https://github.com/launchkey/launchkey-ssh
+#Vcs-Git: git://git.debian.org/collab-maint/launchkey-ssh.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/launchkey-ssh.git;a=summary
+
+Package: launchkey-ssh
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libcurl4-openssl-dev, libpam0g
+Description: Two Factor PAM Authentication module for LaunchKey
+ PAM module for LaunchKey intended for use with ssh.
